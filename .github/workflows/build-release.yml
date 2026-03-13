@@ -1,0 +1,40 @@
+name: Build and Release .NET Framework App
+
+# 設定觸發條件：當推送到 main 分支，或是打上 'v*' 標籤時觸發
+on:
+  push:
+    tags:
+      - 'v*' # 當您建立如 v1.0.0 的標籤時，會觸發 Release
+
+jobs:
+  build:
+    runs-on: windows-latest # 必須使用 Windows 環境才能編譯 .NET Framework
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+
+    - name: Restore NuGet Packages
+      run: nuget restore MemoryStressTestTool.sln # 請將此處換成您的 .sln 檔名
+
+    - name: Build Solution (Release)
+      # 這裡會將編譯結果輸出到專案的 bin\Release 資料夾
+      run: msbuild MemoryStressTestTool.sln /p:Configuration=Release /p:Platform="Any CPU" # 請確認您的 Platform 設定 (若是 x64 請改為 "x64")
+
+    - name: Zip Build Output
+      # 將編譯好的程式打包成 ZIP，方便 Release 下載
+      run: Compress-Archive -Path MemoryStressTestTool\bin\Release\* -DestinationPath MemoryStressTestTool-Release.zip
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/') # 只有在打 Tag 的時候才建立 Release
+      with:
+        files: MemoryStressTestTool-Release.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
